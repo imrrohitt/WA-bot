@@ -2,11 +2,12 @@ from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 import requests
 import json
+import os
 
 app = Flask(__name__)
 
 # Groq API configuration
-GROQ_API_KEY = "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"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "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")
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 HEADERS = {
     "Content-Type": "application/json",
@@ -18,7 +19,7 @@ try:
     with open("system.txt", "r") as file:
         SYSTEM_PROMPT = file.read().strip()
 except FileNotFoundError:
-    SYSTEM_PROMPT = "You are a concise assistant, keep replies under 500 chars."  # Fallback
+    SYSTEM_PROMPT = "You are a concise assistant, keep replies under 500 chars."
     print("Warning: system.txt not found, using default prompt")
 
 def get_groq_response(message):
@@ -28,7 +29,7 @@ def get_groq_response(message):
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": message}
         ],
-        "max_tokens": 100  # Adjusted for ~500 chars (assuming ~5 chars/token)
+        "max_tokens": 100
     }
     try:
         response = requests.post(GROQ_API_URL, headers=HEADERS, data=json.dumps(payload))
@@ -36,7 +37,7 @@ def get_groq_response(message):
         result = response.json()
         reply = result["choices"][0]["message"]["content"].strip()
         print(f"Groq Response: {reply}")
-        return reply[:500]  # Enforce 500-character limit
+        return reply[:500]
     except requests.exceptions.RequestException as e:
         error_msg = f"API Error: {str(e)}"
         print(error_msg)
@@ -63,5 +64,13 @@ def whatsapp():
     print(f"Sending to WhatsApp: {msg.body}")
     return str(resp)
 
+@app.route('/health', methods=['GET'])
+def health():
+    return "OK", 200
+
+@app.route('/home', methods=['GET'])
+def home():
+    return "Welcome to the WhatsApp Grok Bot! Send messages via WhatsApp to interact.", 200
+
 if __name__ == '__main__':
-    app.run(debug=True, port=4000)
+    app.run(host='0.0.0.0', port=int(os.getenv("PORT", 4000)))
